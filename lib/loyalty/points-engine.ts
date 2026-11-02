@@ -391,12 +391,22 @@ export async function validateRedemptionVoucher(
   codeOrQrToken: string,
   operatorUserId: string
 ) {
+  if (!codeOrQrToken || typeof codeOrQrToken !== "string") {
+    throw new Error("Código de canje no especificado");
+  }
+
+  const raw = codeOrQrToken.trim();
+  const normalized = raw.replace(/\s+/g, "").toUpperCase();
+  const withPrefix = normalized.startsWith("CJ-") ? normalized : `CJ-${normalized}`;
+
   return await prisma.$transaction(async (tx) => {
     const redemption = await tx.redemption.findFirst({
       where: {
         OR: [
-          { code: codeOrQrToken.trim() },
-          { qrValidationCode: codeOrQrToken.trim() },
+          { code: { equals: raw, mode: "insensitive" } },
+          { code: { equals: normalized, mode: "insensitive" } },
+          { code: { equals: withPrefix, mode: "insensitive" } },
+          { qrValidationCode: raw },
         ],
       },
       include: {
@@ -406,7 +416,7 @@ export async function validateRedemptionVoucher(
     });
 
     if (!redemption) {
-      throw new Error("Código de canje no encontrado");
+      throw new Error(`Código de canje "${raw}" no encontrado. Verifica el código en el cupón o historial.`);
     }
 
     if (redemption.status === RedemptionStatus.COMPLETADO) {
@@ -414,7 +424,7 @@ export async function validateRedemptionVoucher(
     }
 
     if (redemption.status === RedemptionStatus.RECHAZADO || redemption.status === RedemptionStatus.CANCELADO) {
-      throw new Error(`Este canje se encuentra ${redemption.status}`);
+      throw new Error(`Este canje se encuentra ${redemption.status} y no puede ser aplicado`);
     }
 
     // Complete redemption

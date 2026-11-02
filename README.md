@@ -122,3 +122,4 @@ El sistema cuenta con un seeder completo con datos demostrativos en Neon Postgre
    ```
 
 5. Abrir el navegador en `http://localhost:3000`.
+

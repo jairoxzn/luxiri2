@@ -5,7 +5,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { Modal } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, QrCode, Search, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
+import { Camera, QrCode, Search, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 interface QRScannerModalProps {
@@ -26,16 +26,44 @@ export function QRScannerModal({
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerId = "qr-reader-container";
 
+  // Safe scanner cleanup
+  const stopScanner = async () => {
+    const scanner = html5QrCodeRef.current;
+    if (!scanner) return;
+    html5QrCodeRef.current = null;
+
+    try {
+      if (scanner.isScanning) {
+        await scanner.stop();
+      }
+    } catch {
+      // Ignore if already stopped
+    }
+
+    try {
+      const container = document.getElementById(scannerContainerId);
+      if (container) {
+        await scanner.clear();
+      }
+    } catch {
+      // Ignore if container is unmounted
+    } finally {
+      setCameraActive(false);
+    }
+  };
+
   // Handle camera start/stop
   useEffect(() => {
     let isMounted = true;
 
     if (isOpen) {
       setErrorMsg(null);
-      // Wait for DOM
       const timer = setTimeout(() => {
         if (!isMounted) return;
         try {
+          const container = document.getElementById(scannerContainerId);
+          if (!container) return;
+
           const scanner = new Html5Qrcode(scannerContainerId);
           html5QrCodeRef.current = scanner;
 
@@ -51,7 +79,7 @@ export function QRScannerModal({
                 handleVerifyToken(decodedText);
               },
               () => {
-                // scanning error/frame ignore
+                // scanning frame error ignore
               }
             )
             .then(() => {
@@ -61,11 +89,13 @@ export function QRScannerModal({
               console.warn("Could not start camera:", err);
               if (isMounted) {
                 setCameraActive(false);
-                setErrorMsg("No se pudo iniciar la cámara (puede no estar disponible o faltar permisos). Puedes ingresar el código o buscar manualmente abajo.");
+                setErrorMsg(
+                  "No se pudo iniciar la cámara (puede requerir permisos en el navegador o estar en uso). Puedes ingresar el token, número de tarjeta o DNI manualmente abajo."
+                );
               }
             });
         } catch (e: any) {
-          setErrorMsg(e.message);
+          if (isMounted) setErrorMsg(e.message);
         }
       }, 300);
 
@@ -79,31 +109,18 @@ export function QRScannerModal({
     }
   }, [isOpen]);
 
-  const stopScanner = async () => {
-    if (html5QrCodeRef.current) {
-      try {
-        if (html5QrCodeRef.current.isScanning) {
-          await html5QrCodeRef.current.stop();
-        }
-        await html5QrCodeRef.current.clear();
-      } catch (err) {
-        console.error("Error stopping scanner:", err);
-      } finally {
-        html5QrCodeRef.current = null;
-        setCameraActive(false);
-      }
-    }
-  };
-
   const handleVerifyToken = async (token: string) => {
     if (!token || loading) return;
     setLoading(true);
     setErrorMsg(null);
 
     try {
-      // Pause scanner while verifying
       if (html5QrCodeRef.current?.isScanning) {
-        await html5QrCodeRef.current.pause(true);
+        try {
+          await html5QrCodeRef.current.pause(true);
+        } catch {
+          // ignore pause error
+        }
       }
 
       const res = await fetch("/api/cards/verify", {
@@ -115,7 +132,7 @@ export function QRScannerModal({
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Código QR no válido");
+        throw new Error(data.error || "Tarjeta o código no reconocido");
       }
 
       toast.success(`Cliente verificado: ${data.customer.fullName}`);
@@ -125,12 +142,13 @@ export function QRScannerModal({
     } catch (err: any) {
       setErrorMsg(err.message || "Error al verificar código");
       toast.error(err.message || "Error al verificar código");
-      // Resume scanner
       try {
-        if (html5QrCodeRef.current) {
+        if (html5QrCodeRef.current && (html5QrCodeRef.current as any).isPaused?.()) {
           html5QrCodeRef.current.resume();
         }
-      } catch {}
+      } catch {
+        // ignore resume error
+      }
     } finally {
       setLoading(false);
     }
@@ -155,7 +173,7 @@ export function QRScannerModal({
           <span>Escanear Tarjeta Digital</span>
         </div>
       }
-      description="Apunta la cámara al código QR de la tarjeta del cliente"
+      description="Apunta la cámara al código QR de la tarjeta o ingresa el número de tarjeta / DNI"
       maxWidth="md"
     >
       <div className="space-y-4 pt-1">
@@ -188,16 +206,16 @@ export function QRScannerModal({
           </div>
         )}
 
-        {/* Fallback Manual Token or Code Input */}
+        {/* Fallback Manual Input: Card Number, Customer Code, DNI, or Token */}
         <div className="border-t border-neutral-800 pt-4">
           <p className="text-xs font-medium text-neutral-400 mb-2">
-            O ingresa el token QR / código manualmente:
+            O ingresa Tarjeta (ej. LUX-2026-1001), Código Socio (LPT-10001), DNI o Token:
           </p>
           <form onSubmit={handleManualSubmit} className="flex gap-2">
             <Input
               value={manualCode}
               onChange={(e) => setManualCode(e.target.value)}
-              placeholder="Pegar token de tarjeta..."
+              placeholder="Ej. LUX-2026-1001, LPT-10001 o DNI..."
               className="text-xs font-mono"
             />
             <Button
@@ -215,4 +233,3 @@ export function QRScannerModal({
     </Modal>
   );
 }
-
