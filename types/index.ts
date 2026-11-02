@@ -120,3 +120,4 @@ export const RedemptionStatus = {
   COMPLETADO: "COMPLETADO",
   CANCELADO: "CANCELADO",
 } as const;
+
