@@ -34,6 +34,7 @@ import { QRViewerModal } from "@/components/qr/QRViewerModal";
 import { formatCurrency, formatPoints, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
+import CustomerBottomNav from "@/components/layout/CustomerBottomNav";
 
 export default function CustomerPortalPage() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -241,28 +242,7 @@ export default function CustomerPortalPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Navigation Pills Bar */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-neutral-800">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all ${
-                active
-                  ? "bg-[#D4AF37] text-black shadow-gold-sm"
-                  : "text-neutral-400 hover:bg-neutral-900 hover:text-white"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+    <div className="space-y-6 pb-28 sm:pb-32">
 
       {/* TAB: DASHBOARD */}
       {activeTab === "dashboard" && (
@@ -474,10 +454,40 @@ export default function CustomerPortalPage() {
         </div>
       )}
 
-      {/* TAB: MIS PUNTOS */}
-      {activeTab === "puntos" && (
+      {/* TAB: MIS PUNTOS & SERVICIOS */}
+      {(activeTab === "puntos" || activeTab === "servicios") && (
         <div className="space-y-6">
-          {/* Balance Cards */}
+          {/* Sub-tabs switcher */}
+          <div className="flex items-center gap-2 border-b border-neutral-800 pb-3">
+            <button
+              type="button"
+              onClick={() => setActiveTab("puntos")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeTab === "puntos"
+                  ? "bg-[#D4AF37] text-black shadow-gold-sm"
+                  : "text-neutral-400 hover:text-white bg-neutral-900/60 hover:bg-neutral-900"
+              }`}
+            >
+              <Coins className="h-4 w-4" />
+              <span>Balance y Movimientos</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("servicios")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeTab === "servicios"
+                  ? "bg-[#D4AF37] text-black shadow-gold-sm"
+                  : "text-neutral-400 hover:text-white bg-neutral-900/60 hover:bg-neutral-900"
+              }`}
+            >
+              <Briefcase className="h-4 w-4" />
+              <span>Historial de Viajes ({customer.bookings?.length || 0})</span>
+            </button>
+          </div>
+
+          {activeTab === "puntos" && (
+            <div className="space-y-6">
+              {/* Balance Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card className="luxury-border-glow">
               <CardHeader className="pb-2">
@@ -611,11 +621,43 @@ export default function CustomerPortalPage() {
           </div>
         </Card>
       )}
+        </div>
+      )}
 
-      {/* TAB: RECOMPENSAS */}
-      {activeTab === "recompensas" && (
+      {/* TAB: RECOMPENSAS & CANJES */}
+      {(activeTab === "recompensas" || activeTab === "canjes") && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          {/* Sub-tabs switcher */}
+          <div className="flex items-center gap-2 border-b border-neutral-800 pb-3">
+            <button
+              type="button"
+              onClick={() => setActiveTab("recompensas")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeTab === "recompensas"
+                  ? "bg-[#D4AF37] text-black shadow-gold-sm"
+                  : "text-neutral-400 hover:text-white bg-neutral-900/60 hover:bg-neutral-900"
+              }`}
+            >
+              <Gift className="h-4 w-4" />
+              <span>Catálogo de Premios</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("canjes")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeTab === "canjes"
+                  ? "bg-[#D4AF37] text-black shadow-gold-sm"
+                  : "text-neutral-400 hover:text-white bg-neutral-900/60 hover:bg-neutral-900"
+              }`}
+            >
+              <TicketCheck className="h-4 w-4" />
+              <span>Mis Cupones Canjeados ({customer.redemptions?.length || 0})</span>
+            </button>
+          </div>
+
+          {activeTab === "recompensas" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-white">Catálogo de Recompensas Exclusivas</h3>
               <p className="text-xs text-neutral-400">
@@ -768,10 +810,43 @@ export default function CustomerPortalPage() {
           </div>
         </div>
       )}
+        </div>
+      )}
 
-      {/* TAB: PROMOCIONES */}
-      {activeTab === "promociones" && (
+      {/* TAB: MI PERFIL & PROMOCIONES */}
+      {(activeTab === "perfil" || activeTab === "promociones") && (
         <div className="space-y-6">
+          {/* Sub-tabs switcher */}
+          <div className="flex items-center gap-2 border-b border-neutral-800 pb-3">
+            <button
+              type="button"
+              onClick={() => setActiveTab("perfil")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeTab === "perfil"
+                  ? "bg-[#D4AF37] text-black shadow-gold-sm"
+                  : "text-neutral-400 hover:text-white bg-neutral-900/60 hover:bg-neutral-900"
+              }`}
+            >
+              <User className="h-4 w-4" />
+              <span>Información y Seguridad</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("promociones")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeTab === "promociones"
+                  ? "bg-[#D4AF37] text-black shadow-gold-sm"
+                  : "text-neutral-400 hover:text-white bg-neutral-900/60 hover:bg-neutral-900"
+              }`}
+            >
+              <Tag className="h-4 w-4" />
+              <span>Promociones VIP Activas ({promotions.length})</span>
+            </button>
+          </div>
+
+          {/* TAB: PROMOCIONES */}
+          {activeTab === "promociones" && (
+            <div className="space-y-6">
           <div>
             <h3 className="text-lg font-bold text-white">Promociones y Campañas Activas</h3>
             <p className="text-xs text-neutral-400">
@@ -906,6 +981,8 @@ export default function CustomerPortalPage() {
           </Card>
         </div>
       )}
+        </div>
+      )}
 
       {/* Modal: Confirm Reward Redemption */}
       <Modal
@@ -973,6 +1050,8 @@ export default function CustomerPortalPage() {
           }}
         />
       )}
+      {/* Floating Curved Notch Bottom Navigation Bar */}
+      <CustomerBottomNav activeTab={activeTab} onChangeTab={setActiveTab} />
     </div>
   );
 }
