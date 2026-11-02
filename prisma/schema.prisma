@@ -1,0 +1,426 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+  CUSTOMER
+}
+
+enum DocType {
+  DNI
+  CE
+  PASAPORTE
+  RUC
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum CardStatus {
+  ACTIVE
+  BLOCKED
+  EXPIRED
+}
+
+enum ServiceCategory {
+  TRANSPORTE
+  VIAJES_PRIVADOS
+  TOURS
+  MENSAJERIA
+  TRANSPORTE_EMPRESARIAL
+  SERVICIOS_ESPECIALES
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  YAPE
+  PLIN
+  TRANSFERENCIA_BANCARIA
+  TARJETA
+  OTROS
+}
+
+enum PaymentStatus {
+  PENDIENTE
+  PAGADO
+  REEMBOLSADO
+}
+
+enum BookingStatus {
+  PENDIENTE
+  EN_PROCESO
+  COMPLETADO
+  CANCELADO
+  REEMBOLSADO
+}
+
+enum PointTransactionType {
+  EARNED
+  REDEEMED
+  EXPIRED
+  REVERSED
+  ADJUSTMENT
+}
+
+enum LotStatus {
+  ACTIVE
+  EXHAUSTED
+  EXPIRED
+  REVERSED
+}
+
+enum RedemptionStatus {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+  COMPLETADO
+  CANCELADO
+}
+
+model User {
+  id                   String                 @id @default(uuid())
+  email                String                 @unique
+  password             String
+  name                 String
+  phone                String?
+  role                 Role                   @default(CUSTOMER)
+  isActive             Boolean                @default(true)
+  avatarUrl            String?
+  customer             Customer?
+  operatedBookings     Booking[]              @relation("OperatorBookings")
+  operatedTransactions PointTransaction[]     @relation("OperatorTransactions")
+  approvedRedemptions  Redemption[]           @relation("ApprovedByUser")
+  validatedRedemptions Redemption[]           @relation("ValidatedByUser")
+  tierHistories        CustomerTierHistory[]  @relation("UserTierChanges")
+  auditLogs            AuditLog[]
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
+
+model Customer {
+  id                String                 @id @default(uuid())
+  userId            String?                @unique
+  user              User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  code              String                 @unique // e.g. LPT-10001
+  firstName         String
+  lastName          String
+  docType           DocType                @default(DNI)
+  docNumber         String                 @unique
+  phone             String
+  email             String                 @unique
+  address           String?
+  district          String?
+  city              String?                @default("Arequipa")
+  birthDate         DateTime?
+  status            CustomerStatus         @default(ACTIVE)
+  notes             String?
+  tierId            String
+  tier              LoyaltyTier            @relation(fields: [tierId], references: [id])
+  totalSpent        Decimal                @default(0.00) @db.Decimal(12, 2)
+  currentPoints     Int                    @default(0)
+  lifetimePoints    Int                    @default(0)
+  registeredAt      DateTime               @default(now())
+  card              LoyaltyCard?
+  bookings          Booking[]
+  pointTransactions PointTransaction[]
+  pointLots         PointLot[]
+  redemptions       Redemption[]
+  tierHistory       CustomerTierHistory[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([docNumber])
+  @@index([email])
+  @@index([phone])
+  @@index([code])
+  @@index([tierId])
+}
+
+model LoyaltyTier {
+  id               String                 @id @default(uuid())
+  name             String                 @unique // BRONZE, SILVER, GOLD, PLATINUM
+  slug             String                 @unique
+  minSpend         Decimal                @db.Decimal(12, 2)
+  minPoints        Int                    @default(0)
+  pointsMultiplier Float                  @default(1.0)
+  discountPercent  Float                  @default(0.0)
+  color            String                 // Hex color for badges
+  badgeIcon        String                 // Lucide icon name or medal
+  description      String?
+  perks            String                 // JSON string or summary of benefits
+  orderIndex       Int                    @default(0)
+  isActive         Boolean                @default(true)
+  customers        Customer[]
+  previousInHistory CustomerTierHistory[] @relation("PreviousTier")
+  newInHistory     CustomerTierHistory[]  @relation("NewTier")
+  rewards          Reward[]
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([orderIndex])
+}
+
+model CustomerTierHistory {
+  id             String       @id @default(uuid())
+  customerId     String
+  customer       Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  previousTierId String?
+  previousTier   LoyaltyTier? @relation("PreviousTier", fields: [previousTierId], references: [id])
+  newTierId      String
+  newTier        LoyaltyTier  @relation("NewTier", fields: [newTierId], references: [id])
+  reason         String?
+  changedById    String?
+  changedBy      User?        @relation("UserTierChanges", fields: [changedById], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@index([customerId])
+}
+
+model LoyaltyCard {
+  id            String     @id @default(uuid())
+  customerId    String     @unique
+  customer      Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  cardNumber    String     @unique // e.g. LUX-8839-1092
+  qrCodeToken   String     @unique // Secure random 32-64 byte token
+  qrImageUrl    String?
+  status        CardStatus @default(ACTIVE)
+  issuedAt      DateTime   @default(now())
+  expiresAt     DateTime?
+  lastScannedAt DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([qrCodeToken])
+  @@index([cardNumber])
+}
+
+model Service {
+  id               String          @id @default(uuid())
+  name             String
+  slug             String          @unique
+  category         ServiceCategory
+  description      String?
+  referencePrice   Decimal         @db.Decimal(10, 2)
+  pointsMultiplier Float           @default(1.0)
+  isActive         Boolean         @default(true)
+  bookings         Booking[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([category])
+}
+
+model Booking {
+  id                   String             @id @default(uuid())
+  code                 String             @unique // CNS-2026-0001
+  customerId           String
+  customer             Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceId            String
+  service              Service            @relation(fields: [serviceId], references: [id])
+  description          String?
+  bookingDate          DateTime           @default(now())
+  amount               Decimal            @db.Decimal(10, 2)
+  paymentMethod        PaymentMethod      @default(EFECTIVO)
+  paymentStatus        PaymentStatus      @default(PENDIENTE)
+  serviceStatus        BookingStatus      @default(PENDIENTE)
+  pointsEarned         Int                @default(0)
+  operatorId           String?
+  operator             User?              @relation("OperatorBookings", fields: [operatorId], references: [id])
+  notes                String?
+  isProcessedForPoints Boolean            @default(false)
+  completedAt          DateTime?
+  payments             Payment[]
+  pointTransactions    PointTransaction[]
+  pointLots            PointLot[]
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([customerId])
+  @@index([serviceId])
+  @@index([code])
+  @@index([bookingDate])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  bookingId       String
+  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount          Decimal       @db.Decimal(10, 2)
+  paymentMethod   PaymentMethod
+  referenceNumber String?
+  status          PaymentStatus @default(PAGADO)
+  paidAt          DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+
+  @@index([bookingId])
+}
+
+model LoyaltyRule {
+  id                 String   @id @default(uuid())
+  key                String   @unique @default("DEFAULT")
+  name               String   @default("Regla Estándar Luxury")
+  spendPerPoint      Decimal  @default(10.00) @db.Decimal(10, 2) // S/ 10 = 1 pt
+  minSpend           Decimal  @default(10.00) @db.Decimal(10, 2)
+  roundingMethod     String   @default("FLOOR") // FLOOR, ROUND, CEIL
+  pointsExpiryMonths Int      @default(12)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model PointTransaction {
+  id            String               @id @default(uuid())
+  customerId    String
+  customer      Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bookingId     String?
+  booking       Booking?             @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  redemptionId  String?
+  redemption    Redemption?          @relation(fields: [redemptionId], references: [id], onDelete: SetNull)
+  type          PointTransactionType
+  points        Int                  // Positive for earn, negative for redeem/expire
+  balanceAfter  Int
+  concept       String
+  notes         String?
+  operatorId    String?
+  operator      User?                @relation("OperatorTransactions", fields: [operatorId], references: [id])
+  referenceCode String?
+  createdAt     DateTime             @default(now())
+
+  @@index([customerId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model PointLot {
+  id              String    @id @default(uuid())
+  customerId      String
+  customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bookingId       String?
+  booking         Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  pointsInitial   Int
+  pointsRemaining Int
+  status          LotStatus @default(ACTIVE)
+  expiresAt       DateTime
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model Reward {
+  id             String       @id @default(uuid())
+  name           String
+  slug           String       @unique
+  description    String?
+  imageUrl       String?
+  category       String       @default("Descuentos")
+  pointsRequired Int
+  stock          Int          @default(100)
+  minTierId      String?
+  minTier        LoyaltyTier? @relation(fields: [minTierId], references: [id])
+  startDate      DateTime?
+  endDate        DateTime?
+  terms          String?
+  isActive       Boolean      @default(true)
+  redemptions    Redemption[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([pointsRequired])
+  @@index([isActive])
+}
+
+model Redemption {
+  id                String             @id @default(uuid())
+  code              String             @unique // e.g. CJ-883921
+  customerId        String
+  customer          Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  rewardId          String
+  reward            Reward             @relation(fields: [rewardId], references: [id])
+  pointsSpent       Int
+  status            RedemptionStatus   @default(PENDIENTE)
+  qrValidationCode  String             @unique // Token to validate by operator
+  requestedAt       DateTime           @default(now())
+  approvedAt        DateTime?
+  approvedByUserId  String?
+  approvedByUser    User?              @relation("ApprovedByUser", fields: [approvedByUserId], references: [id])
+  completedAt       DateTime?
+  validatedByUserId String?
+  validatedByUser   User?              @relation("ValidatedByUser", fields: [validatedByUserId], references: [id])
+  rejectionReason   String?
+  notes             String?
+  pointTransactions PointTransaction[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@index([code])
+  @@index([qrValidationCode])
+}
+
+model Promotion {
+  id                  String   @id @default(uuid())
+  name                String
+  slug                String   @unique
+  description         String?
+  bannerUrl           String?
+  promoType           String   @default("DOUBLE_POINTS") // DOUBLE_POINTS, BONUS_POINTS, DISCOUNT, BIRTHDAY
+  multiplier          Float    @default(1.0)
+  bonusPoints         Int      @default(0)
+  startDate           DateTime
+  endDate             DateTime
+  eligibleTierIds     String?  // JSON string or comma-separated tier IDs
+  eligibleServiceIds  String?  // JSON string or comma-separated service IDs
+  terms               String?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  details   String?  @db.Text
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   @db.Text
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+}
+
