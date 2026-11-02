@@ -4,6 +4,8 @@ import { requireAuth } from "@/lib/auth/rbac";
 import { Role, ServiceCategory } from "@prisma/client";
 import { logAuditEvent } from "@/lib/loyalty/audit";
 
+export const dynamic = "force-dynamic";
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }

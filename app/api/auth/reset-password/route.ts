@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { logAuditEvent } from "@/lib/loyalty/audit";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: NextRequest) {
   try {
     const { email, newPassword } = await request.json();

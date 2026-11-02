@@ -4,6 +4,8 @@ import { requireAuth } from "@/lib/auth/rbac";
 import { Role } from "@prisma/client";
 import { logAuditEvent } from "@/lib/loyalty/audit";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: NextRequest) {
   const auth = await requireAuth([Role.ADMIN, Role.OPERATOR]);
   if (!auth.authorized) return auth.response;

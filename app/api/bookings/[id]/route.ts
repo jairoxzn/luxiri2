@@ -5,6 +5,8 @@ import { Role, PaymentStatus, BookingStatus } from "@prisma/client";
 import { creditPointsForBooking, revertPointsForBooking } from "@/lib/loyalty/points-engine";
 import { logAuditEvent } from "@/lib/loyalty/audit";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }

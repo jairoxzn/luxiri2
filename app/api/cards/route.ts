@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db/prisma";
 import { requireAuth } from "@/lib/auth/rbac";
 import { Role } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const auth = await requireAuth([Role.ADMIN, Role.OPERATOR]);
   if (!auth.authorized) return auth.response;

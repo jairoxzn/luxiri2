@@ -4,6 +4,8 @@ import { requireAuth } from "@/lib/auth/rbac";
 import { Role, PointTransactionType } from "@prisma/client";
 import { logAuditEvent } from "@/lib/loyalty/audit";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const auth = await requireAuth([Role.ADMIN, Role.OPERATOR, Role.CUSTOMER]);
   if (!auth.authorized) return auth.response;

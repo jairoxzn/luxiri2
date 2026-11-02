@@ -6,6 +6,8 @@ import { generateCardNumber, generateSecureQRToken } from "@/lib/qr/qr-service";
 import { hashPassword } from "@/lib/auth/password";
 import { logAuditEvent } from "@/lib/loyalty/audit";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const auth = await requireAuth([Role.ADMIN, Role.OPERATOR]);
   if (!auth.authorized) return auth.response;
