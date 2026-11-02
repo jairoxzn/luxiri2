@@ -1,5 +1,12 @@
 import { prisma } from "../db/prisma";
-import { PointTransactionType, LotStatus, RedemptionStatus, BookingStatus, PaymentStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import {
+  PointTransactionType,
+  LotStatus,
+  RedemptionStatus,
+  BookingStatus,
+  PaymentStatus,
+} from "@/types";
 import crypto from "crypto";
 
 export interface CalculationResult {
@@ -55,7 +62,7 @@ export async function calculatePointsForAmount(
 export async function evaluateAndUpdateCustomerTier(
   customerId: string,
   operatorUserId?: string | null,
-  tx?: any
+  tx?: Prisma.TransactionClient
 ) {
   const db = tx || prisma;
 
@@ -112,7 +119,7 @@ export async function creditPointsForBooking(
   bookingId: string,
   operatorUserId?: string | null
 ) {
-  return await prisma.$transaction(async (tx) => {
+  return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const booking = await tx.booking.findUnique({
       where: { id: bookingId },
       include: {
@@ -223,7 +230,7 @@ export async function revertPointsForBooking(
   reason: string,
   operatorUserId?: string | null
 ) {
-  return await prisma.$transaction(async (tx) => {
+  return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const booking = await tx.booking.findUnique({
       where: { id: bookingId },
       include: { customer: true },
@@ -300,7 +307,7 @@ export async function requestRewardRedemption(
   rewardId: string,
   notes?: string
 ) {
-  return await prisma.$transaction(async (tx) => {
+  return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const customer = await tx.customer.findUnique({
       where: { id: customerId },
       include: { tier: true },
@@ -399,7 +406,7 @@ export async function validateRedemptionVoucher(
   const normalized = raw.replace(/\s+/g, "").toUpperCase();
   const withPrefix = normalized.startsWith("CJ-") ? normalized : `CJ-${normalized}`;
 
-  return await prisma.$transaction(async (tx) => {
+  return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const redemption = await tx.redemption.findFirst({
       where: {
         OR: [
@@ -447,4 +454,3 @@ export async function validateRedemptionVoucher(
     };
   });
 }
-
